@@ -1,0 +1,14 @@
+{
+  "code": 0,
+  "sip": [
+    "http://dl.stream.qqmusic.qq.com/",
+    "http://isure.stream.qqmusic.qq.com/"
+  ],
+  "thirdip": [
+    "http://thirdparty.gtimg.com/abcd1234/",
+    "http://thirdparty.gtimg.com/abcd1234/"
+  ],
+  "testfile2g": "C100003mAan70zUy5O.m4a",
+  "testfilewifi": "C100003mAan70zUy5O.m4a",
+  "key": "B58E60DDC6ED956A84DD2F20768BD2DB74B53D008C726EC2FC7188AE8A2F2EEF0CF3D2AD9C26F94AAF41A82B29A30BE8B8481824748C6858"
+}
