@@ -17,6 +17,10 @@ import (
 // to avoid re-upload file
 var AudiosMap map[string]*telebot.Audio
 
+// map song's download command to songId
+// to deal with multi commands creating
+var SongCommandMap map[string]music.Song
+
 var bot *telebot.Bot
 
 func main() {
@@ -25,7 +29,10 @@ func main() {
 		return
 	}
 
+	// map init
 	AudiosMap = map[string]*telebot.Audio{}
+	SongCommandMap = map[string]music.Song{}
+
 	var err error
 	bot, err = telebot.NewBot(telebot.Settings{
 		Token:  os.Args[1],
@@ -85,14 +92,16 @@ func main() {
 		}
 		songBuilder := ""
 		for _, song := range songs {
-			command := fmt.Sprintf("/dl_%s", song.SongId)
-			singersStr := ""
-			for _, singer := range song.Singers {
-				if len(singer) != 0 {
-					singersStr += (singer + "\\")
-				}
+			if len(song.SongId) == 0 {
+				continue
 			}
-			songBuilder += fmt.Sprintf("*%s* - %s \nListen: [%s](%s)\n", song.Name, singersStr, command, command)
+			command := fmt.Sprintf("/dl_%s", song.SongId)
+			singersStr := getSingersStr(&song)
+			songBuilder += fmt.Sprintf("🎵 *%s*\n%s \n点击 [%s](%s) 收听\n\n", song.Name, singersStr, command, command)
+
+			SongCommandMap[command] = song
+
+			log.Printf("handle command: %s with %s\n", command, song.SongId)
 			// a inner command to send audio, use like: /dl_songId
 			bot.Handle(command, func(msg *telebot.Message) {
 				if !msg.Private() {
@@ -100,7 +109,7 @@ func main() {
 				}
 				// do in goroutines
 				go func() {
-					if !sendAudio(song.SongId, key, msg.Sender) {
+					if !sendAudio(command, key, msg.Sender) {
 						_, _ = bot.Send(msg.Sender, "/(ㄒoㄒ)/~~抱歉，没有找到的资源")
 					}
 				}()
@@ -121,53 +130,52 @@ func main() {
 			return
 		}
 		text := msg.Text
-		strings.TrimSuffix(text, "吗？")
-		strings.TrimSuffix(text, "吗?")
+		text = strings.TrimSuffix(text, "吗？")
+		text = strings.TrimSuffix(text, "吗?")
+		text += "!"
 		_, _ = bot.Send(msg.Sender, text)
 	})
 
 	bot.Start()
 }
 
-/*
-func sendAudioTest(receiver *telebot.User) bool {
-	url := "http://dl.stream.qqmusic.qq.com/M800000cWOZ64cs3Oa.mp3?vkey=B58E60DDC6ED956A84DD2F20768BD2DB74B53D008C726EC2FC7188AE8A2F2EEF0CF3D2AD9C26F94AAF41A82B29A30BE8B8481824748C6858&guid=5150825362&fromtag=1"
-	// var out *os.File
-	// if _, err := os.Stat("000cWOZ64cs3Oa.mp3"); !os.IsNotExist(err) {
-	// download file
-	// out, _ = os.Create("000cWOZ64cs3Oa.mp3")
-	// defer out.Close()
-	resp, err := http.Get(url)
-	if err != nil {
-		_, _ = bot.Send(receiver, err.Error())
-		return false
+func getSingersStr(song *music.Song) string {
+	singersStr := ""
+	for index, singer := range song.Singers {
+		if len(singer) != 0 {
+			if index != 0 {
+				singersStr += "/"
+			}
+			singersStr += singer
+		}
 	}
-	// }
-	// save file
-	// _, _ = io.Copy(out, resp.Body)
-	audio := &telebot.Audio{File: telebot.FromReader(resp.Body)}
-	_, err = bot.Send(receiver, audio)
-	if err != nil {
-		_, _ = bot.Send(receiver, err.Error())
-	}
-	return err == nil
+	return singersStr
 }
-*/
 
-// fixme
 // if the audio not upload to telegram, upload first then send.
 // so this function will cast times
-func sendAudio(songId string, key string, receiver *telebot.User) bool {
+func sendAudio(command string, key string, receiver *telebot.User) bool {
+	song := SongCommandMap[command]
+	songId := song.SongId
+	if len(songId) == 0 {
+		return false
+	}
 	// audio has been uploaded
 	if AudiosMap[songId] != nil {
+		log.Printf("%s is in map, send directly.", songId)
 		_, err := bot.Send(receiver, AudiosMap[songId])
 		return err == nil
 	}
 
 	url, ok := music.GetSongUrl(songId, key)
+
+	log.Printf("songId: %s:\n%s", songId, url)
+
 	if ok {
 		resp, err := http.Get(url)
 		if err != nil {
+			log.Println(err.Error())
+
 			_, _ = bot.Send(receiver, err.Error())
 			return false
 		}
@@ -175,6 +183,8 @@ func sendAudio(songId string, key string, receiver *telebot.User) bool {
 		// record file and send
 		AudiosMap[songId] = songFile
 		_, err = bot.Send(receiver, songFile)
+		// send song name for unknown songs
+		_, _ = bot.Send(receiver, fmt.Sprintf("%s-%s", song.Name, getSingersStr(&song)))
 		return err == nil
 	}
 
