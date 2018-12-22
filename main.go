@@ -48,15 +48,7 @@ func main() {
 		if !msg.Private() {
 			return
 		}
-		_, _ = bot.Send(msg.Sender, "*Enjoy free music!*", telebot.ModeMarkdown)
-	})
-
-	bot.Handle("/echo", func(msg *telebot.Message) {
-		// all commands is personal chat only
-		if !msg.Private() {
-			return
-		}
-		_, _ = bot.Send(msg.Sender, msg.Payload)
+		_, _ = bot.Send(msg.Sender, "*Enjoy free music!* 发送歌名，聆听和下载音乐", telebot.ModeMarkdown)
 	})
 
 	/*
@@ -75,12 +67,12 @@ func main() {
 		}
 	*/
 
-	bot.Handle("/music", func(msg *telebot.Message) {
+	bot.Handle(telebot.OnText, func(msg *telebot.Message) {
 		if !msg.Private() {
 			return
 		}
 
-		query := msg.Payload
+		query := msg.Text
 		songs := music.GetSongList(query, 1)
 		_, _ = bot.Send(msg.Sender, songs)
 
@@ -125,11 +117,11 @@ func main() {
 	})
 
 	// silly AI
-	bot.Handle(telebot.OnText, func(msg *telebot.Message) {
+	bot.Handle("/echo", func(msg *telebot.Message) {
 		if !msg.Private() {
 			return
 		}
-		text := msg.Text
+		text := msg.Payload
 		text = strings.TrimSuffix(text, "吗？")
 		text = strings.TrimSuffix(text, "吗?")
 		text += "!"
